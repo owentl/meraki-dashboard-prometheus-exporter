@@ -60,8 +60,8 @@ def get_uplinks_loss_and_latency(network_devices_dict, dashboard, organization_i
             if serial and uplink_name and network_id in network_devices_dict:
                 if serial in network_devices_dict[network_id]["devices"]:
                     if (
-                            "uplinks"
-                            not in network_devices_dict[network_id]["devices"][serial]
+                        "uplinks"
+                        not in network_devices_dict[network_id]["devices"][serial]
                     ):
                         network_devices_dict[network_id]["devices"][serial][
                             "uplinks"
@@ -75,7 +75,7 @@ def get_uplinks_loss_and_latency(network_devices_dict, dashboard, organization_i
                     if latency_metric is not None:
                         network_devices_dict[network_id]["devices"][serial]["uplinks"][
                             uplink_name
-                        ]["latency"] = (latency_metric / 1000)
+                        ]["latency"] = latency_metric / 1000
 
                     loss_metric = uplink["timeSeries"][-1]["lossPercent"]
                     if loss_metric is not None:
@@ -100,24 +100,29 @@ def get_uplink_statuses(network_devices_dict, dashboard, organization_id):
             if network_id in network_devices_dict:
                 if serial in network_devices_dict[network_id]["devices"]:
                     if (
-                            "uplinks"
-                            not in network_devices_dict[network_id]["devices"][serial]
+                        "uplinks"
+                        not in network_devices_dict[network_id]["devices"][serial]
                     ):
                         network_devices_dict[network_id]["devices"][serial][
                             "uplinks"
                         ] = {}
                     for uplink in device["uplinks"]:
                         uplink_name = uplink.get("interface")
-                        if uplink_name and uplink_name not in network_devices_dict[network_id]["devices"][serial][
-                            "uplinks"]:
+                        if (
+                            uplink_name
+                            and uplink_name
+                            not in network_devices_dict[network_id]["devices"][serial][
+                                "uplinks"
+                            ]
+                        ):
                             network_devices_dict[network_id]["devices"][serial][
                                 "uplinks"
                             ][uplink_name] = {}
                         uplink_status = uplink.get("status")
                         if uplink_status:
-                            network_devices_dict[network_id]["devices"][serial]["uplinks"][
-                                uplink_name
-                            ]["status"] = uplink_status
+                            network_devices_dict[network_id]["devices"][serial][
+                                "uplinks"
+                            ][uplink_name]["status"] = uplink_status
     except meraki.APIError as api_error:
         logging.warning(api_error)
 
@@ -135,7 +140,10 @@ def get_uplink_usage(network_devices_dict, dashboard):
 
             interface_dict = uplink_usage_list[-1]["byInterface"]
             for interface in interface_dict:
-                if interface.get("sent") is not None and interface.get("received") is not None:
+                if (
+                    interface.get("sent") is not None
+                    and interface.get("received") is not None
+                ):
                     network_devices_dict[network_id]["interfaces"][
                         interface["interface"]
                     ] = {"sent": interface["sent"], "received": interface["received"]}
@@ -158,7 +166,7 @@ def get_usage(dashboard, organization_id):
 
 
 REQUEST_TIME = Gauge("request_processing_seconds", "Time spent processing request")
-label_list = ["networkId", "networkName"]
+label_list = ["networkId", "networkName", "orgName"]
 network_uplink_sent_metric = Gauge(
     "meraki_network_uplink_sent",
     "Network Uplink Sent Bytes (per minute)",
@@ -199,6 +207,8 @@ device_uplink_status_metric = Gauge(
 def update_metrics():
     dashboard = meraki.DashboardAPI(API_KEY, base_url=API_URL, suppress_logging=True)
     organization_id = ORG_ID
+    ## Get organization name for adding to labels
+    org_name = dashboard.organizations.getOrganization(organization_id)["name"]
 
     network_devices_dict = get_usage(dashboard, organization_id)
     logging.debug(f"Reporting on: {len(network_devices_dict)} networks")
@@ -217,11 +227,11 @@ def update_metrics():
         if "interfaces" in network_details:
             for uplink_name, uplink_details in network_details["interfaces"].items():
                 network_uplink_sent_metric.labels(
-                    network_id, network_name, uplink_name
+                    network_id, network_name, org_name, uplink_name
                 ).set(uplink_details["sent"])
 
                 network_uplink_received_metric.labels(
-                    network_id, network_name, uplink_name
+                    network_id, network_name, org_name, uplink_name
                 ).set(uplink_details["received"])
 
         if "devices" in network_details:
@@ -233,12 +243,12 @@ def update_metrics():
 
                 if "status" in device_details:
                     device_status_metric.labels(
-                        network_id, network_name, device_serial, device_name
+                        network_id, network_name, org_name, device_serial, device_name
                     ).set("1" if device_details["status"] == "online" else "0")
 
                 if "usingCellularFailover" in device_details:
                     device_cellular_failover_metric.labels(
-                        network_id, network_name, device_serial, device_name
+                        network_id, network_name, org_name, device_serial, device_name
                     ).set("1" if device_details["usingCellularFailover"] else "0")
 
                 if "uplinks" in device_details:
@@ -249,6 +259,7 @@ def update_metrics():
                             device_uplink_status_metric.labels(
                                 network_id,
                                 network_name,
+                                org_name,
                                 device_serial,
                                 device_name,
                                 uplink_name,
@@ -257,6 +268,7 @@ def update_metrics():
                             device_uplink_latency_metric.labels(
                                 network_id,
                                 network_name,
+                                org_name,
                                 device_serial,
                                 device_name,
                                 uplink_name,
@@ -265,6 +277,7 @@ def update_metrics():
                             device_uplink_loss_metric.labels(
                                 network_id,
                                 network_name,
+                                org_name,
                                 device_serial,
                                 device_name,
                                 uplink_name,
