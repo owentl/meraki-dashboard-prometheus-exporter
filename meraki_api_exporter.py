@@ -166,7 +166,7 @@ def get_usage(dashboard, organization_id):
 
 
 REQUEST_TIME = Gauge("request_processing_seconds", "Time spent processing request")
-label_list = ["networkId", "networkName", "orgName"]
+label_list = ["networkName", "orgName"]
 network_uplink_sent_metric = Gauge(
     "meraki_network_uplink_sent",
     "Network Uplink Sent Bytes (per minute)",
@@ -227,11 +227,11 @@ def update_metrics():
         if "interfaces" in network_details:
             for uplink_name, uplink_details in network_details["interfaces"].items():
                 network_uplink_sent_metric.labels(
-                    network_id, network_name, org_name, uplink_name
+                    network_name, org_name, uplink_name
                 ).set(uplink_details["sent"])
 
                 network_uplink_received_metric.labels(
-                    network_id, network_name, org_name, uplink_name
+                    network_name, org_name, uplink_name
                 ).set(uplink_details["received"])
 
         if "devices" in network_details:
@@ -243,12 +243,12 @@ def update_metrics():
 
                 if "status" in device_details:
                     device_status_metric.labels(
-                        network_id, network_name, org_name, device_serial, device_name
+                        network_name, org_name, device_serial, device_name
                     ).set("1" if device_details["status"] == "online" else "0")
 
                 if "usingCellularFailover" in device_details:
                     device_cellular_failover_metric.labels(
-                        network_id, network_name, org_name, device_serial, device_name
+                        network_name, org_name, device_serial, device_name
                     ).set("1" if device_details["usingCellularFailover"] else "0")
 
                 if "uplinks" in device_details:
@@ -257,7 +257,6 @@ def update_metrics():
                     ].items():
                         if "status" in uplink_details:
                             device_uplink_status_metric.labels(
-                                network_id,
                                 network_name,
                                 org_name,
                                 device_serial,
@@ -266,7 +265,6 @@ def update_metrics():
                             ).set(uplink_status_mappings[uplink_details["status"]])
                         if "latency" in uplink_details:
                             device_uplink_latency_metric.labels(
-                                network_id,
                                 network_name,
                                 org_name,
                                 device_serial,
@@ -275,7 +273,6 @@ def update_metrics():
                             ).set(uplink_details["latency"])
                         if "loss" in uplink_details:
                             device_uplink_loss_metric.labels(
-                                network_id,
                                 network_name,
                                 org_name,
                                 device_serial,
